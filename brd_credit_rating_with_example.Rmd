@@ -1,0 +1,557 @@
+---
+title: "BRD model2"
+author: "Abdullahi Adinoyi IBRAHIM"
+date: "28 August 2018"
+output:
+  
+  html_document: default
+  pdf_document: default
+---
+# Credit Rating Model               
+                      
+* In this model, we use Colliearity to select statistically significant Featues and then perform Logistic regression on it                
+
+# ================================================        
+                           
+* Logistic Regression                      
+* multicollinearity                                   
+                           
+# ================================================        
+
+## Some Required packages
+```{r}
+#install.packages("ROSE")
+#Save the required packages in a variable
+load_packages <- c("ggplot2","car","Hmisc","ROCR","caret","dummies","caTools","MASS", "gridExtra","gmodels", "ROSE")
+#load the packages
+lapply(load_packages,require,character.only = TRUE)
+```
+
+# Loading the data
+```{r}
+brd_data <- read.csv("C:\\Users\\abdon\\Documents\\R\\BRD projects guide\\internship\\brd_data1.csv", sep = ",", header =TRUE)
+```
+
+# Data prepartion for Modelling
+```{r}
+#check for NA values
+sum(is.na(brd_data))
+
+#check for duplicated values
+sum(duplicated(brd_data))
+
+#check the structure and summary
+str(brd_data)
+
+#check the summary
+#summary(brd_data)
+```
+
+
+# Removing the following columns
+```{r}
+#brd_data_removed <- brd_data[-c(1,2,3,4)]
+brd_data$Count <- NULL
+brd_data$GL.229 <- NULL
+brd_data$GL.298 <- NULL
+brd_data$Code.Reechel. <- NULL
+brd_data$Reech.as.On <- NULL
+brd_data$Client.Account <- NULL
+#===================================
+#check for total number of NA
+sum(is.na(brd_data))
+```
+
+
+# We Express the continous variables properly 
+                       
+* They are not properly expressed, we remove the comma
+```{r}
+#Lets turn all continuous variables to numeric
+brd_data$Loan.Amount <- as.numeric(gsub(",","",brd_data$Loan.Amount))
+brd_data$GL.A.C <- as.numeric(gsub(",","", brd_data$GL.A.C))
+brd_data$Follow.A.C <- as.numeric(gsub(",","", brd_data$Follow.A.C))
+brd_data$Settlement.Curr..A.C <- as.numeric(gsub(",","", brd_data$Settlement.Curr..A.C))
+#brd_data$PIN.Client <- as.numeric(gsub(",","", brd_data$PIN.Client))
+brd_data$Dossier.No <- as.numeric(gsub(",","", brd_data$Dossier.No))
+brd_data$Credit.No <- as.numeric(gsub(",","", brd_data$Credit.No))
+brd_data$Rate <- as.numeric(gsub(",","", brd_data$Rate))
+brd_data$Del.Int..Rate <- as.numeric(gsub(",","", brd_data$Del.Int..Rate))
+#brd_data$Loan.Duration <- as.numeric(gsub(",","", brd_data$Loan.Amount))
+brd_data$Disbursed <- as.numeric(gsub(",","", brd_data$Disbursed))
+brd_data$To.Be.Disbursed <- as.numeric(gsub(",","", brd_data$To.Be.Disbursed))
+brd_data$Reimbursed.Amount <- as.numeric(gsub(",","", brd_data$Reimbursed.Amount))
+brd_data$Debit.Balance <- as.numeric(gsub(",","", brd_data$Debit.Balance))
+brd_data$Solde.Comptable <- as.numeric(gsub(",","", brd_data$Solde.Comptable))
+brd_data$Int...com.issued <- as.numeric(gsub(",","", brd_data$Int...com.issued))
+brd_data$Int...com.paid <- as.numeric(gsub(",","", brd_data$Int...com.paid))
+brd_data$Int...Com.unpaid <- as.numeric(gsub(",","", brd_data$Int...Com.unpaid))
+brd_data$Int.balance...com <- as.numeric(gsub(",","", brd_data$Int.balance...com))
+brd_data$Total.Risk <- as.numeric(gsub(",","", brd_data$Total.Risk))
+brd_data$Principal.unpaid <- as.numeric(gsub(",","", brd_data$Principal.unpaid))
+brd_data$Norm..Interest <- as.numeric(gsub(",","", brd_data$Norm..Interest))
+brd_data$Delay..Interest <- as.numeric(gsub(",","", brd_data$Delay..Interest))
+brd_data$Comms <- as.numeric(gsub(",","", brd_data$Comms))
+brd_data$Activity <- as.numeric(gsub(",","", brd_data$Activity))
+brd_data$X.PRI.INT..Next.Due.Instalment <- as.numeric(gsub(",","", brd_data$X.PRI.INT..Next.Due.Instalment))
+brd_data$Principal <- as.numeric(gsub(",","", brd_data$Principal))
+brd_data$Interest <- as.numeric(gsub(",","", brd_data$Interest))
+brd_data$Grand.total <- as.numeric(gsub(",","", brd_data$Grand.total))
+brd_data$suspended.int <- as.numeric(gsub(",","", brd_data$suspended.int))
+brd_data$Collateral <- as.numeric(gsub(",","", brd_data$Collateral))
+brd_data$Provisions <- as.numeric(gsub(",","", brd_data$Provisions))
+```
+
+```{r}
+brd_data <- na.omit(brd_data) #incase of NA's introduced by coercion
+```
+                        
+* Since there are no more NA's, Now extract some features and check for outliers
+
+# Selecting Features
+```{r}
+# Extract the following variables variables only
+brd_data <- brd_data[c("Loan.Amount",
+                                 "GL.A.C",
+                                 "Follow.A.C",
+                                 "Settlement.Curr..A.C",
+                                 "Dossier.No",
+                                 "Credit.No",
+                                 "Rate",
+                                 "Del.Int..Rate",
+                                 "Loan.Duration",
+                                 "Disbursed",
+                                "To.Be.Disbursed",
+                                "Reimbursed.Amount",
+                                "Debit.Balance",
+                                "Solde.Comptable",
+                                "Int...com.issued",
+                                "Int...com.paid",
+                                "Int...Com.unpaid",
+                                "Int.balance...com",
+                                "Total.Risk",
+                                "Principal.unpaid",
+                                "Norm..Interest",
+                                "Delay..Interest",
+                                "Comms",
+                                "Activity",
+                                "X.PRI.INT..Next.Due.Instalment",
+                                "Principal",
+                                "Interest",
+                                "Grand.total",
+                                "suspended.int",
+                                "Collateral",
+                                "Provisions",
+                                "Class.of.Risk",
+                                "Monitored.By",
+                                "District",
+                                "BRD.Sector",
+                                "Sector",
+                                "DIVISION"
+)]
+```
+
+# ================================================        
+# creating a response variable
+# ================================================        
+
+```{r}
+brd_data$status <- ifelse(brd_data$Class.of.Risk >= 3, 1,0) 
+brd_data$status <- factor( brd_data$status, levels = c(0,1))
+#default=1
+#non default = 0
+```
+
+# ================================================        
+# Univariate analysis for the **categorical** variables                
+# ================================================        
+
+
+## **Class.of.Risk** column                         
+```{r}
+ggplot(brd_data) +
+  geom_bar(aes(x=Class.of.Risk,fill = "gray")) + 
+  theme(axis.text.y = element_text(size = rel(.8)) )
+```
+
+## **Monitored.By** column
+```{r}
+attach(brd_data)
+ggplot(brd_data) +
+  geom_bar(aes(x=Monitored.By), fill = 'gray') + 
+  coord_flip()+
+  theme(axis.text.y = element_text(size = rel(.8)) )
+```
+
+## **BRD.Sector** column
+```{r}
+ggplot(brd_data) +
+  geom_bar(aes(x=BRD.Sector),fill = 'gray') + 
+  coord_flip()+
+  theme(axis.text.y = element_text(size = rel(.8)) )
+```
+
+## **sector** column
+```{r}
+ggplot(brd_data) +
+  geom_bar(aes(x=Sector),fill = 'gray') + 
+  coord_flip()+
+  theme(axis.text.y = element_text(size = rel(.8)) )
+```
+
+## **DIVISION** column
+```{r}
+ggplot(brd_data) +
+  geom_bar(aes(x=DIVISION),fill = 'gray') + 
+  theme(axis.text.y = element_text(size = rel(.8)) )
+```
+
+# Bivariate plot
+## **District** & **Loan.Amount** columns 
+```{r}
+ggplot(brd_data) +
+  geom_bar(aes(x=District,y=Loan.Amount),stat = "identity", fill = 'gray') + 
+  coord_flip()+
+  theme(axis.text.y = element_text(size = rel(.8)) )
+```
+
+# ================================================        
+# selection of Continous Variables/Features
+# ================================================        
+
+```{r}
+#brd_data <- brd_data[c(-23,-33,-34,-35,-36,-37)]
+brd_data <- brd_data[c(-23,-33,-34,-35,-37)]
+```
+
+# No more NA's in the Data, Now we check for outliers
+## outlier treatment for all **Continous** variables
+
+```{r}
+#column = Settlement.Curr..A.C
+#check for outliers in numeric variables, if any found than we do capping and flooring
+options(scipen = 999) #Express exponentials properly
+boxplot.stats(brd_data$Settlement.Curr..A.C) # No Outlier
+#boxplot(na.omit(brd_data1$Settlement.Curr..A.C), main = "boxplot for 'Settlement.Curr..A.C' ")
+plot(brd_data$Settlement.Curr..A.C)
+#boxplot.stats(brd_data$Settlement.Curr..A.C)$out 
+```
+
+
+## column = Settlement.Curr..A.C
+```{r}
+#column = Settlement.Curr..A.C
+#check for outliers in numeric variables, if any found than we do capping and flooring
+options(scipen = 999) #transfrom from exponent form
+boxplot.stats(brd_data$Follow.A.C) #no outlier
+boxplot(brd_data$Follow.A.C, main = "boxplot for 'follow_A.C' ")
+#boxplot.stats(brd_data1$Follow.A.C)$out
+```
+
+## column = Loan.Amount
+```{r}
+# column = Loan.Amount
+#check for outliers in numeric variables, if any found than we do capping and flooring
+options(scipen = 999)
+
+boxplot.stats(brd_data$Loan.Amount) #103 outliers detected
+boxplot(brd_data$Loan.Amount, main = "boxplot for 'Loan.Amount' ")
+plot(brd_data$Loan.Amount) #many visible outliers
+#================================
+#outlier
+#a <- quantile(brd_data$Loan.Amount)       #IRQ = a['75%'] - a['25%'] 
+outliers_upperlimit <- quantile(brd_data$Loan.Amount, 0.75) + 1.5 * IQR(brd_data$Loan.Amount)
+index.outliers.loan <- which(brd_data$Loan.Amount >= outliers_upperlimit | brd_data$Loan.Amount >= 102136587 ) 
+brd_data <- brd_data[-index.outliers.loan, ] #Removing observations
+
+plot(brd_data$Loan.Amount)#check the outliers
+boxplot(brd_data$Loan.Amount,main = "boxplot without outlier ") # no outliers
+boxplot.stats(brd_data$Loan.Amount) # no more outliers
+```
+
+## column = Collateral
+```{r}
+#column = Collateral
+#check for outliers in numeric variables, if any found than we do capping and flooring
+options(scipen = 999)
+
+boxplot.stats(brd_data$Collateral)
+boxplot(brd_data$Collateral, main = "boxplot for 'Collateral' ") #many outliers
+plot(brd_data$Collateral)
+#min(boxplot.stats(brd_data$Collateral)$out) # No Outlier
+
+# outlier treatmernt
+outliers_upperlimit1 <- quantile(brd_data$Collateral, 0.75) + 1.5 * IQR(brd_data$Collateral) # upper_limit = 
+index.outliers.collateral <- which(brd_data$Collateral >= outliers_upperlimit | brd_data$Collateral >= 125961 ) #470 outliers
+brd_data <- brd_data[-index.outliers.collateral, ] #Removing observations
+
+plot(brd_data$Collateral, main = "plot without outliers")#check the outliers
+boxplot(brd_data$Collateral, main = "boxplot without outlier") # no outliers
+boxplot.stats(brd_data$Loan.Amount) # no more outliers
+
+```
+
+## column = grant.total
+```{r}
+#column = grant.total
+#check for outliers in numeric variables, if any found than we do capping and flooring
+
+boxplot.stats(brd_data$Grand.total)
+boxplot(brd_data$Grand.total, main = "boxplot for 'Grand.total' ")
+plot(brd_data$Grand.total, main = "plot with outliers")
+#min(boxplot.stats(brd_data$Grand.total)$out) # No Outlier
+
+# outlier treatmernt
+outliers_upperlimit2 <- quantile(brd_data$Grand.total, 0.75) + 1.5 * IQR(brd_data$Grand.total) # upper_limit = 
+index.outliers.Grand_total <- which(brd_data$Grand.total >= outliers_upperlimit | brd_data$Grand.total >= 76870 ) #5 outliers
+brd_data <- brd_data[-index.outliers.Grand_total, ] #Removing observations
+
+plot(brd_data$Grand.total, main = "plot without outliers")#double check the outliers
+boxplot(brd_data$Grand.total, main = "boxplot without outlier", xlab = "Grand.total") # no outliers
+boxplot.stats(brd_data$Grand.total) # no more outliers
+```
+
+## column = principal
+```{r}
+#column = principal
+#check for outliers in numeric variables, if any found than we do capping and flooring
+boxplot.stats(brd_data$Principal) #49 outliers
+boxplot(brd_data$Principal, main = "boxplot for 'Principal' ")
+plot(brd_data$Principal)
+# outlier treatmernt
+outliers_upperlimit3 <- quantile(brd_data$Principal, 0.75) + 1.5 * IQR(brd_data$Principal) # upper_limit = 
+index.outliers.principal <- which(brd_data$Principal >= outliers_upperlimit3 | brd_data$Principal >=  337283 ) #50 outliers
+brd_data <- brd_data[-index.outliers.principal, ] #Removing observations
+
+plot(brd_data$Principal, main = "plot without outliers")#double check the outliers
+boxplot(brd_data$Principal, main = "boxplot without outlier",xlab = "Principal") # no outliers
+#boxplot.stats(brd_data$principal) # no more outliers
+```
+
+## column = Total.risk
+```{r}
+#column = Total.Risk
+#check for outliers in numeric variables, if any found than we do capping and flooring
+boxplot.stats(brd_data$Total.Risk) #No outliers
+boxplot(brd_data$Total.Risk, main = "boxplot for 'Total.Risk' ")
+plot(brd_data$Total.Risk)
+```
+
+# ---------------------------
+# MULTICOLLINEARITY
+# -----------------------------
+```{r}
+# to display the correlations
+#cor(brd_data[-32])
+
+```
+           
+* We check for correlation and remove features with high correlation
+                        
+# we shall cutoff variables with high correlation
+```{r}
+#highly_Cor_brd <- colnames(brd_data)[findCorrelation(abs(cor(brd_data[-32])), cutoff = 0.75, verbose = TRUE)]
+#print(highlyCor)
+
+```
+
+# **Removing the features**
+```{r}
+#**Removing the columns**
+#brd_data_okay <- brd_data[,which(!colnames(brd_data) %in% highly_Cor_brd[-32])]
+#----------------------------------------------------
+# Now we have low correlation
+#cor(brd_data_okay)
+```
+
+# =====================================================        
+# splitting the data into **train** and **test** sample
+# =====================================================        
+                     
+* this step is necessary, we need to split the data into two parts, train(70%) and test(30). then we build our model from the train sample and use the test_sample to evaluate the model performance
+```{r}
+# creating a response variable as a factor of 0 and 1
+brd_data$status <- factor( brd_data$status, levels = c(0,1))
+table(brd_data$status) #check data type
+#default=1
+#non default = 0
+
+# =================
+set.seed(100)
+sample <- sample.split(brd_data$status, 0.7)
+train <- subset(brd_data, sample == TRUE)
+test <- subset(brd_data, sample == FALSE)
+```
+
+
+```{r}
+prop.table(table( brd_data$status ))
+# non-default =89.3% and default = 10.7% 
+#dim(train)
+```
+
+
+# balance the data
+```{r}
+#table(train$status)
+# the response variable is bias
+# we have to baance the data
+data.rose <- ROSE(status ~ ., data = train, seed = 1)$data
+prop.table( table(data.rose$status))
+# default=50.5  and non-default = 49.5%
+```
+                          
+* Now we have balance the data. we can now develop the model                 
+
+
+                                                     
+# ================================================        
+# Logistic Regression Model              
+# ================================================        
+```{r}
+#names(data.rose)
+#m1 <- glm(formula = status ~ ., data =  data.rose[-1], family = binomial)
+Logitmodel <- glm(formula = status ~ Loan.Amount + Activity + Rate + Collateral   , data =  data.rose, family = binomial)
+summary(Logitmodel)
+```
+
+
+# Prediction
+```{r}
+test$pred <- predict(Logitmodel, newdata = test, type = "response")
+hist(test$pred, main = "histogram for predcited")
+```
+
+## Evaluate the model
+```{r}
+#test$pred <- predict(m1, newdata = test, type = "response")
+predic <- prediction(test$pred,test$status)
+perf <- performance(predic, "tpr", "fpr")
+plot(perf)
+
+#accuracy.meas(test$status, test$pred)
+```
+
+# the prediction
+```{r}
+test$cut_off <- ifelse(test$pred >= .6, 1, 0 )
+table(test$status, test$cut_off)
+
+# numbers and their percentage
+#CrossTable(test$status, test$cut_off,prop.r = TRUE, prop.c = FALSE, prop.t = FALSE, prop.chisq = FALSE)
+```
+
+## SUmmary of the prediction                             
+```{r}
+confusionMatrix(as.factor( test$status),as.factor( test$cut_off))
+```
+                  
+* this function gives the model accuracy, the specificity and specitivity
+
+## overall accuracy of the model in percentage
+```{r}
+sum(diag(table(test$status, test$cut_off )))/ nrow(test) * 100 
+```
+
+
+```{r}
+colAUC(test$pred,test$status, plotROC = TRUE)
+```
+
+# Rating scale
+* Now we are going to rate the borrowers according to the rating probability criteria
+```{r}
+test$Rating <-           ifelse(test$pred >=0.0 & test$pred < .01, "AAA",  
+                         ifelse(test$pred >= .01 & test$pred < .02, "AA",
+                         ifelse( test$pred >= 0.02 & test$pred < 0.05, "A",
+                         ifelse( test$pred >= 0.05 & test$pred < .10, "BBB",
+                         ifelse( test$pred >= 0.1 & test$pred < .20, "BB",
+                         ifelse( test$pred >= .20 & test$pred < .40, "B",
+                         ifelse( test$pred >= .40 & test$pred < 1, "C",
+                         ifelse( test$pred >= 1 & test$pred <= 1, "D", test$pred ))))))))
+#=======================
+table(test$Rating)
+```
+                                                 
+# Lets round the **pred** to 2 decimal places                
+             
+## Since our predicted-values are more than 2 decimals and our rating criteria is in 2 decimal places
+```{r}
+test$aprrox <- round(test$pred,digits=2)
+# ---------------------------------
+test$Rating2 <-          ifelse(test$aprrox >=0.0 & test$aprrox < .01, "AAA",  
+                         ifelse(test$aprrox >= .01 & test$aprrox < .02, "AA",
+                         ifelse( test$aprrox >= 0.02 & test$aprrox < 0.05, "A",
+                         ifelse( test$aprrox >= 0.05 & test$aprrox < .10, "BBB",
+                         ifelse( test$aprrox >= 0.1 & test$aprrox < .20, "BB",
+                         ifelse( test$aprrox >= .20 & test$aprrox < .40, "B",
+                         ifelse( test$aprrox >= .40 & test$aprrox < 1, "C",
+                         ifelse( test$aprrox >= 1, "D", test$aprrox ))))))))
+#=======================
+table(test$Rating2)
+CrossTable(test$Rating2)
+```
+
+# Visualize final rating
+```{r}
+ggplot(test) + 
+  geom_bar(aes(x=Rating2),fill = 'gray') + 
+  coord_flip() +
+  theme(axis.text.y = element_text(size = rel(.8))) +ggtitle("Rating classes and its frequecy")
+```
+
+# ================================================        
+# Conclusion
+# ================================================        
+         
+* (1) from above, we have been able to determine the following (1) probability of default and (2 )rate the borrowers
+              
+* (2) to make a prediction, the following feature must be present in our dataset: ( Loan.Amount,  Activity,  Rate,  Collateral )  
+        
+* (3) I balanced the data because Had I just blindly predicted all the data points as non-default, I would achieve an accuracy              percentage of 90%. Which sounds pretty high. But obviously that is flawed. What matters is how well you predict the default           classes.So that requires the default and non-default classes are balanced AND on top of that I need more refined accuracy             measures and model evaluation metrics to improve my prediction model.
+                                   
+     
+# =================================================        
+# =================================================                                           
+# Example 1 
+
+```{r}
+library(tidyverse)
+data3 <- read.csv("C:\\Users\\abdon\\Documents\\R\\BRD projects guide\\internship\\Submit\\data6.csv", header = TRUE, sep = ",")
+#data3 <- data3[c("Loan.Amount", "Activity", "Rate", "Collateral", "Sector", ")]
+
+data3$Loan.Amount <- as.numeric(gsub(",","",data3$Loan.Amount))
+data3$Activity <- as.numeric(gsub(",","",data3$Activity))
+data3$Rate <- as.numeric(gsub(",","",data3$Rate))
+data3$Collateral <- as.numeric(gsub(",","",data3$Collateral))
+#data3$Principal <- as.numeric(gsub(",", "", data3$Principal))
+# --------------------------
+data3$pred <- Logitmodel %>% predict(newdata = data3, type = "response")
+data3$status <- as.factor(ifelse(data3$pred >= .6, 1,0))
+# Rating
+data3$aprrox <- round(data3$pred,digits=2)
+data3$Ratings <-        ifelse( data3$aprrox >=0.0 & data3$aprrox < .01, "AAA",  
+                         ifelse( data3$aprrox >= .01 & data3$aprrox < .02, "AA",
+                         ifelse( data3$aprrox >= 0.02 & data3$aprrox < 0.05, "A",
+                         ifelse( data3$aprrox >= 0.05 & data3$aprrox < .10, "BBB",
+                         ifelse( data3$aprrox >= 0.1 & data3$aprrox < .20, "BB",
+                         ifelse( data3$aprrox >= .20 & data3$aprrox < .40, "B",
+                         ifelse( data3$aprrox >= .40 & data3$aprrox < 1, "C",
+                         ifelse( data3$aprrox >= 1, "D", data3$aprrox ))))))))
+# --------------------------
+table(data3$Ratings)
+# searching for a row
+#data3[data3$Loan.Amount == 20968092 ,]
+```
+
+
+```{r}
+# to knit pdf
+# install.packages("rmarkdown")
+# devtools::install_github('yihui/tinytex')
+data3$original <- as.factor( ifelse(brd_data [brd_data$Rate == data3$Rate && brd_data$Class.of.Risk >= 3, 1,0]))
+```
+
+
+
+
